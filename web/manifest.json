@@ -1,6 +1,6 @@
 {
-    "name": "test_newfirebase",
-    "short_name": "test_newfirebase",
+    "name": "test_scrolable_list",
+    "short_name": "test_scrolable_list",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
