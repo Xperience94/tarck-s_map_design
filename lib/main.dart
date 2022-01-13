@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:scrollable_list_tabview/scrollable_list_tabview.dart';
-import 'second_view.dart'
+import 'second_view.dart';
 
 void main() {
   runApp(MyApp());
@@ -52,8 +52,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   onTap: () {
                     print(myProducts[index]);
                     Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SecondRoute()),
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const SecondRoute()),
                     );
                   },
                   // In many cases, the key isn't mandatory

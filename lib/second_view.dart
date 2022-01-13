@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 
-
-
-
 class SecondRoute extends StatelessWidget {
   const SecondRoute({Key? key}) : super(key: key);
 
