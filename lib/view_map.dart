@@ -29,7 +29,7 @@ class ViewMap extends StatefulWidget {
   // always marked "final".
 
   final String title;
-  int track;
+  String track;
 
   @override
   State<ViewMap> createState() => _ViewMapState();
@@ -43,7 +43,8 @@ class _ViewMapState extends State<ViewMap> {
   late MapController _mapController;
   final List<LatLng> _polyline = [];
   final _firestore = FirebaseFirestore.instance;
-  late int _numtrack;
+  late String _trackName;
+  late StreamSubscription<Position> _positionStreamSubscription;
   @override
   void initState() {
     super.initState();
@@ -55,7 +56,7 @@ class _ViewMapState extends State<ViewMap> {
     // setState(() {
     //   _polyline.clear(); //flush all point
     //   //free all the data in the firebase
-    //   _firestore.collection('test$_numtrack').get().then((snapshot) {
+    //   _firestore.collection('test$_trackName').get().then((snapshot) {
     //     for (DocumentSnapshot doc in snapshot.docs) {
     //       //doc.reference.delete();
     //       final mylocation = doc.data();
@@ -72,9 +73,10 @@ class _ViewMapState extends State<ViewMap> {
     //a verifier si il marche vraiment
     Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high);
+    _mapController.move(LatLng(position.latitude, position.longitude), 16);
   }
 
-//fonction appeller toute les 2 seconde
+//fonction appeller toute les 2 seconde et met a jour la position de l'iutilisateur
   Future<void> _measure() async {
     setState(() async {
       print("je rentre dans la measure pour ajuster ");
@@ -82,14 +84,14 @@ class _ViewMapState extends State<ViewMap> {
         //print("je passe la 1");
         final geo = Geoflutterfire();
         CollectionReference test =
-            FirebaseFirestore.instance.collection('track$_numtrack');
+            FirebaseFirestore.instance.collection(_trackName);
         Position position = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.high);
         GeoFirePoint myLocation = geo.point(
             latitude: position.latitude, longitude: position.longitude);
 
         _firestore
-            .collection('test$_numtrack')
+            .collection(_trackName)
             .add({'geohash': 'track', 'position': myLocation.data}).then((_) {
           print('added ${myLocation.hash} successfully');
         });
@@ -107,32 +109,49 @@ class _ViewMapState extends State<ViewMap> {
     });
   }
 
-  void _incrementCounter() {
-    setState(() {
-      //change the name of the button
-      if (_end == "Start") {
-        setState(() async {
-          nameButton = "Save !";
-          _end = "Done";
-          //Zomm in
-          Position position = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high);
-          _mapController.move(
-              LatLng(position.latitude, position.longitude), 16);
+  Future<void> _incrementCounter() async {
+    //setState(() {
+    //change the name of the button
+    if (_end == "Start") {
+      setState(() {
+        nameButton = "Save !";
+        _end = "Done";
+      });
+      //Zomm in
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      _mapController.move(LatLng(position.latitude, position.longitude), 16);
+      final positionStream = Geolocator.getPositionStream();
+      _positionStreamSubscription = positionStream.handleError((error) {
+        _positionStreamSubscription?.cancel();
+        print("il y a une erreur dans le stream ");
+        //_positionStreamSubscription = null;
+      }).listen((position) {
+        _polyline.add(LatLng(position.latitude, position.longitude));
+        final geo = Geoflutterfire();
+        GeoFirePoint myLocation = geo.point(
+            latitude: position.latitude, longitude: position.longitude);
+        _firestore
+            .collection(_trackName)
+            .add({'geohash': 'track', 'position': myLocation.data}).then((_) {
+          print('added ${myLocation.hash} successfully');
         });
-      } else if (_end == "Done") {
-        setState(() {
-          nameButton = "Start";
-          _end = "Start";
-        });
-      }
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      //_counter++;
-    });
+      });
+    } else if (_end == "Done") {
+      setState(() {
+        nameButton = "Start";
+        _end = "Start";
+      });
+      _positionStreamSubscription.pause();
+      _positionStreamSubscription.cancel();
+    }
+    // This call to setState tells the Flutter framework that something has
+    // changed in this State, which causes it to rerun the build method below
+    // so that the display can reflect the updated values. If we changed
+    // _counter without calling setState(), then the build method would not be
+    // called again, and so nothing would appear to happen.
+    //_counter++;
+    //});
   }
 
   void _onPositionChanged(MapPosition pos, bool hasGesture) {
@@ -143,7 +162,7 @@ class _ViewMapState extends State<ViewMap> {
     setState(() {
       _polyline.clear(); //flush all point
       //free all the data in the firebase
-      _firestore.collection('test$_numtrack').get().then((snapshot) {
+      _firestore.collection(_trackName).get().then((snapshot) {
         for (DocumentSnapshot doc in snapshot.docs) {
           doc.reference.delete();
         }
@@ -156,16 +175,16 @@ class _ViewMapState extends State<ViewMap> {
 
   @override
   Widget build(BuildContext context) {
-    _numtrack = widget.track;
-    setState(() async {
+    _trackName = widget.track;
+    setState(() {
       //zom in
-      Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-      _mapController.move(LatLng(position.latitude, position.longitude), 16);
+      // Position position = await Geolocator.getCurrentPosition(
+      //     desiredAccuracy: LocationAccuracy.high);
+      // _mapController.move(LatLng(position.latitude, position.longitude), 16);
 
       _polyline.clear(); //flush all point
       //free all the data in the firebase
-      _firestore.collection('test$_numtrack').get().then((snapshot) {
+      _firestore.collection(_trackName).get().then((snapshot) {
         for (DocumentSnapshot doc in snapshot.docs) {
           //doc.reference.delete();
           final mylocation = doc.get("position")["geopoint"];
