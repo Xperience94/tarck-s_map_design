@@ -1,10 +1,12 @@
-// ignore_for_file: deprecated_member_use, unnecessary_new
-
+////////////////////////////////////////////////////////////////////////
+///////////////////////// Author : HUGO LOPES //////////////////////////
+////////////////////////////////////////////////////////////////////////
 import 'package:flutter/material.dart';
 import 'view_map.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 List<String> myProducts = [];
 void main() async {
@@ -12,7 +14,6 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  print("dans le main");
 
   await FirebaseFirestore.instance
       .collection('alltracks')
@@ -21,8 +22,6 @@ void main() async {
     myProducts.clear();
     for (DocumentSnapshot doc in snapshot.docs) {
       //doc.reference.delete();
-      print(doc.get("String"));
-      //value++;
       myProducts.add(doc.get("String"));
       //print(mylocation.latitude);
       //print(mylocation.longitude);
@@ -39,7 +38,7 @@ class MyApp extends StatelessWidget {
       title: 'Flutter Demo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.orange,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       home: const MyHomePage(title: 'Tracks_geo'),
@@ -69,7 +68,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   // ignore: non_constant_identifier_names
   void delete_tarck_pist(int index) {
-    print(myProducts[index]);
     _firestore.collection(myProducts[index]).get().then((snapshot) {
       for (DocumentSnapshot doc in snapshot.docs) {
         doc.reference.delete();
@@ -78,25 +76,25 @@ class _MyHomePageState extends State<MyHomePage> {
     //le supprimer de la liste de alltracks
     _firestore.collection('alltracks').get().then((snapshot) {
       for (DocumentSnapshot doc in snapshot.docs) {
-        print("ce que je vois sur firebase " + doc.get("String"));
         int taille = myProducts.length;
-        print("le nom de ma pist $taille ");
         if (doc.get("String") == myProducts[index]) {
           doc.reference.delete();
         }
       }
       setState(() {
         myProducts.removeAt(index);
-        //value--;
-        print("je passe ici pour supprimer une item de la list");
       });
     });
   }
 
   final myController = TextEditingController();
   String namecircuit = "";
+  double oppa = 0.1;
+  double oppa_array = 1;
+  double oppa_button = 1;
   Widget _buildPopupDialog(BuildContext context) {
     return new AlertDialog(
+      //backgroundColor: Colors.white.withOpacity(0.1),
       title: const Text('Select a name'),
       content: new Column(
         mainAxisSize: MainAxisSize.min,
@@ -114,8 +112,6 @@ class _MyHomePageState extends State<MyHomePage> {
       actions: <Widget>[
         new FlatButton(
           onPressed: () {
-            print("j'affiche un truc");
-            print(myController.text);
             setState(() {
               value++;
               myProducts.add(myController
@@ -132,9 +128,91 @@ class _MyHomePageState extends State<MyHomePage> {
             myController.clear();
           },
           textColor: Theme.of(context).primaryColor,
-          child: const Text('Create'),
+          child: const Text(
+            'Create',
+            style: TextStyle(color: Colors.black),
+          ),
         ),
       ],
+    );
+  }
+
+  bool Show_array = false, Show_button = false;
+  String explication = "Vous pouvez enregistrer le tracer de vos circuits";
+
+  final keyIsFirstLoaded = 'is_first_loaded';
+  showDialogIfFirstLoaded(BuildContext context) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool? isFirstLoaded = prefs.getBool(keyIsFirstLoaded);
+    if (isFirstLoaded == false) {
+      return;
+    }
+    prefs.setBool(keyIsFirstLoaded, false);
+    setState(() {
+      oppa_array = 0.1;
+      oppa_button = 0.1;
+    });
+    showDialog(
+      context: context,
+      //barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(builder: (context, StateSetter teststate) {
+          // return object of type Dialog
+          return AlertDialog(
+            title: new Text("Presentation"),
+            content: Text(
+              explication,
+              //style: TextStyle(backgroundColor: Colors.white),
+            ),
+            actionsAlignment: MainAxisAlignment.end,
+            backgroundColor: Colors.white.withOpacity(0.7),
+            actions: <Widget>[
+              // usually buttons at the bottom of the dialog
+              FlatButton(
+                child: const Text(
+                  'Suivant',
+                  style: TextStyle(color: Colors.black),
+                ),
+                onPressed: () {
+                  //creation de deux variable Show_array et Show_button
+                  if (Show_array == false && Show_button == false) {
+                    //on augmente l'opacité du tableau
+                    teststate(() => explication =
+                        "voici la liste des circuit sur lequelle sont enregistrer vos circuit !");
+                    setState(() {
+                      oppa_array = 1;
+                      oppa_button = 0.1;
+                      Show_array = true;
+                    });
+
+                    //Navigator.of(context).pop();
+                  } else if (Show_array == true && Show_button == false) {
+                    //on augmente l'opacité du button
+                    teststate(() => explication =
+                        "Voici le bouton qui permet de creer de nouveau circuit !");
+                    setState(() {
+                      oppa_button = 1;
+                      oppa_array = 0.1;
+                      Show_button = true;
+                    });
+
+                    //Navigator.of(context).pop();
+                  } else {
+                    // Close the dialog
+                    setState(() {
+                      oppa_button = 1;
+                      oppa_array = 1;
+                    });
+                    Navigator.of(context).pop();
+                    // Navigator.of(context).pop();
+                    //Navigator.of(context).pop();
+                  }
+                },
+              ),
+            ],
+          );
+        });
+      },
     );
   }
 
@@ -142,22 +220,19 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     //recuperer les infos dans la base de donnée et remplire la liste
     final test = _firestore.toString();
-    print(test);
     // setState(() {
     //   getData();
     // });
-    print("je suis la"); //quand je lance l'app il ne passe par la par
-    print(myProducts);
+    Future.delayed(Duration.zero, () => showDialogIfFirstLoaded(context));
     // setState(() {
     //   myProducts = List.from(test_array);
     // });
-
+    //Future.delayed(Duration.zero, () => _buildPopupExplication(context));
     //myProducts.add("test");
 
     // QuerySnapshot querySnapshot = await _firestore.collection("collection").get();
     // for (int i = 0; i < querySnapshot.docs.length; i++) {
     //   var a = querySnapshot.docs[i];
-    //   print(a.id);
     // }
 
     return Scaffold(
@@ -169,18 +244,17 @@ class _MyHomePageState extends State<MyHomePage> {
         child: ListView.builder(
             // the number of items in the list
             itemCount: myProducts.length,
-
             // display each item of the product list
             itemBuilder: (context, index) {
               return Card(
+                //color: Colors.transparent,
                 child: ListTile(
                   onTap: () {
-                    print(myProducts[index]);
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                           builder: (context) => ViewMap(
-                                title: 'your track',
+                                title: myProducts[index],
                                 //je lui donne le nom de la piste
                                 track: myProducts[index],
                                 //track: index,
@@ -189,12 +263,19 @@ class _MyHomePageState extends State<MyHomePage> {
                   },
                   // In many cases, the key isn't mandatory
 
-                  title: Text(myProducts[index]),
-                  leading: const Icon(Icons.car_repair_outlined),
+                  title: Text(
+                    myProducts[index],
+                    style:
+                        TextStyle(color: Colors.black.withOpacity(oppa_array)),
+                  ),
+                  leading: const Icon(
+                    Icons.car_repair_outlined,
+                    color: Colors.black,
+                  ),
                   trailing: IconButton(
+                    color: Colors.black,
                     icon: const Icon(Icons.delete),
                     onPressed: () {
-                      print("je supprime la card");
                       //appeller la fonction qui va supprimer les tarce sur firebase
                       delete_tarck_pist(index);
                     },
@@ -209,14 +290,16 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          print("je rentre dans le bouton pour add list");
           showDialog(
+            barrierColor: Colors.transparent,
             context: context,
             builder: (BuildContext context) => _buildPopupDialog(context),
           );
         },
         label: Text("New Track"),
         icon: const Icon(Icons.directions_boat),
+        backgroundColor: Colors.orange.withOpacity(oppa_button),
+        foregroundColor: Colors.black.withOpacity(oppa_button),
       ),
     );
   }
