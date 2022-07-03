@@ -7,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:geoflutterfire/geoflutterfire.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+
 import 'package:location/location.dart' as loc;
 import 'firebase_options.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -48,6 +49,8 @@ class _ViewMapState extends State<ViewMap> {
   late MapController _mapController;
   final List<Polyline> _poly = [];
   List<Polyline> polylines_test = [];
+  List<LatLng> positionList = [];
+  List<Color>? gradientColorsList = [];
   List<Position> positionArray = [];
   List<double> speedArray = [];
   final _firestore = FirebaseFirestore.instance;
@@ -65,17 +68,14 @@ class _ViewMapState extends State<ViewMap> {
     active_geoloc();
     getCurrentLocation();
     setState(() {
-      polylines_test.add(Polyline(points: [], gradientColors: [
-        Colors.orange,
-      ])); // je l'initialise une fois puis ensuite je vais le remplir dans fonction "TO COMPLETE"
-      polylines_test[0].strokeWidth = 4.0;
+      gradientColorsList!.add(Colors.orange);
     });
 
     ///call function for routes and pin to put on a map
     //tracePin();
     //tracePolyline();
     super.initState();
-    retarceRace();
+    retraceRace();
     //   print("je rentre la ");
 
     //timer = Timer.periodic(const Duration(seconds: 2), (Timer t) => _measure());
@@ -120,7 +120,7 @@ class _ViewMapState extends State<ViewMap> {
     // });
   }
 
-  void retarceRace() async {
+  void retraceRace() async {
     print("avant appelle de la fonction");
     final forecast = await getAllDataFromDB();
     print("apres appelle de la fonction");
@@ -183,9 +183,10 @@ class _ViewMapState extends State<ViewMap> {
       //j'appuie sur le bouton
       if (nameButton == "END !") {
         setState(() {
-          polylines_test[0]
-              .points
-              .add(LatLng(position.latitude, position.longitude));
+          positionList.add(LatLng(position.latitude, position.longitude));
+          // polylines_test[0]
+          //     .points
+          //     .add(LatLng(position.latitude, position.longitude));
         });
         final geo = Geoflutterfire();
         GeoFirePoint myLocation = geo.point(
@@ -274,31 +275,28 @@ class _ViewMapState extends State<ViewMap> {
     int change = -1;
     int indexDrawPolyline = -1;
 
-    polylines_test = []; // flush the all the draw of the track
-    polylines_test
-        .add(Polyline(points: [], strokeWidth: 4.0, gradientColors: []));
+    positionList = [];
+    gradientColorsList!.clear();
+
     for (var i = 0; i < positionArray.length; i++) {
       if (speedArray[i] < (speedMin + epsilon)) {
         //fill the polyline with the color blue
-        polylines_test[0]
-            .points
+        positionList
             .add(LatLng(positionArray[i].latitude, positionArray[i].longitude));
-        polylines_test[0].gradientColors?.add(Colors.blue); //test sur la map
+        gradientColorsList!.add(Colors.blue);
         continue;
       }
       if (speedArray[i] >= (speedMin + epsilon) &&
           speedArray[i] <= (speedMin + (2 * epsilon))) {
-        polylines_test[0]
-            .points
+        positionList
             .add(LatLng(positionArray[i].latitude, positionArray[i].longitude));
-        polylines_test[0].gradientColors?.add(Colors.orange); //test sur la map
+        gradientColorsList!.add(Colors.orange);
         continue;
       }
       if (speedArray[i] > (speedMin + (2 * epsilon))) {
-        polylines_test[0]
-            .points
+        positionList
             .add(LatLng(positionArray[i].latitude, positionArray[i].longitude));
-        polylines_test[0].gradientColors?.add(Colors.red); //test sur la map
+        gradientColorsList!.add(Colors.red);
         continue;
       }
     }
@@ -377,13 +375,9 @@ class _ViewMapState extends State<ViewMap> {
   void refresh() {
     //fonction qui pose probleme, censer marcher de façon theorique.
     setState(() {
-      polylines_test.clear();
-      setState(() {
-        polylines_test.add(Polyline(points: [], gradientColors: [
-          Colors.orange,
-        ])); // je l'initialise une fois puis ensuite je vais le remplir dans fonction "TO COMPLETE"
-        polylines_test[0].strokeWidth = 4.0;
-      });
+      positionList.clear();
+      gradientColorsList!.clear();
+      gradientColorsList!.add(Colors.orange);
       //free all the data in the firebase
       _firestore.collection(widget.track).get().then((snapshot) {
         for (DocumentSnapshot doc in snapshot.docs) {
@@ -433,7 +427,12 @@ class _ViewMapState extends State<ViewMap> {
                   ),
                   PolylineLayerOptions(
                     //polylineCulling: true,
-                    polylines: polylines_test,
+                    polylines: [
+                      Polyline(
+                          points: positionList,
+                          gradientColors: gradientColorsList,
+                          strokeWidth: 4.0)
+                    ],
                   ),
                   //PolylineLayerOptions(polylines: _poly),
 

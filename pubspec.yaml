@@ -43,7 +43,7 @@ dependencies:
   firebase_core: ^1.10.6
   cloud_firestore: any
   geoflutterfire: ^3.0.2
-  location: ^4.3.0
+  location: ^4.4.0
   flutter_svg: ^1.0.3
   google_maps_flutter: ^2.1.8
 
