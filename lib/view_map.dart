@@ -52,19 +52,18 @@ class _ViewMapState extends State<ViewMap> {
   List<LatLng> positionList = [];
   List<Color>? gradientColorsList = [];
   List<Position> positionArray = [];
-  List<double> speedArray = [];
+  List<int> speedArray = [];
   final _firestore = FirebaseFirestore.instance;
   late String _trackName;
   late StreamSubscription<Position> _positionStreamSubscription;
   late StreamSubscription<Position> _positionStreamSubscription_pin;
   int positionstreambegin = 0;
   List<Marker> _markers = <Marker>[];
-  double speedMin = 0;
-  double speedMax = 0;
+  int speedMin = 0;
+  int speedMax = 0;
 
   @override
   void initState() {
-    _mapController = MapController();
     active_geoloc();
     getCurrentLocation();
     setState(() {
@@ -74,9 +73,9 @@ class _ViewMapState extends State<ViewMap> {
     ///call function for routes and pin to put on a map
     //tracePin();
     //tracePolyline();
+    retraceRace(); //
     super.initState();
-    retraceRace();
-    //   print("je rentre la ");
+    print("je rentre dans le init() ");
 
     //timer = Timer.periodic(const Duration(seconds: 2), (Timer t) => _measure());
 
@@ -168,6 +167,24 @@ class _ViewMapState extends State<ViewMap> {
   // }
 
   void getCurrentLocation() async {
+    loc.Location location = loc.Location();
+    double latitude;
+    print("je veux ma localisation");
+    await location.getLocation().then((location) => {
+          setState(() {
+            currentLocation = Position(
+                longitude: location.longitude!,
+                latitude: location.latitude!,
+                timestamp: DateTime(0),
+                accuracy: 0,
+                altitude: 0,
+                heading: 0,
+                speed: 0,
+                speedAccuracy: 0);
+          })
+        });
+    print("j'obtient ma localisation");
+    _mapController = await MapController();
     print("object");
     final positionStream = Geolocator.getPositionStream();
     _positionStreamSubscription = positionStream.handleError((error) {
@@ -178,12 +195,16 @@ class _ViewMapState extends State<ViewMap> {
       print(position);
       setState(() {
         currentLocation = position;
+        _mapController.move(LatLng(position.latitude, position.longitude), 17);
+        //map.move ne fonctionne pas ici
       });
+
       var speedInMps = position.speed;
       //j'appuie sur le bouton
       if (nameButton == "END !") {
         setState(() {
           positionList.add(LatLng(position.latitude, position.longitude));
+
           // polylines_test[0]
           //     .points
           //     .add(LatLng(position.latitude, position.longitude));
@@ -194,7 +215,9 @@ class _ViewMapState extends State<ViewMap> {
         _firestore.collection(_trackName).add({
           'geohash': 'track',
           'position': myLocation.data,
-          'speed': speedInMps
+          'speed': speedInMps.toInt(),
+          'time': DateTime.now()
+              .millisecondsSinceEpoch //time rajouter afin de permetre de le trier par la suite
         }).then((_) {
           print('added ${myLocation.hash} successfully');
         });
@@ -223,13 +246,18 @@ class _ViewMapState extends State<ViewMap> {
     ///Creation 2 array speed and position
     //get all data from the BDD speed and the position
 
-    return _firestore.collection(widget.track).get().then((snapshot) {
+    return _firestore
+        .collection(widget.track)
+        .orderBy('time')
+        .get()
+        .then((snapshot) {
       for (DocumentSnapshot doc in snapshot.docs) {
         //     //doc.reference.delete();
         print(doc.get("position")["geopoint"]);
         print(doc.get("speed"));
+        print(doc.get('time'));
         setState(() {
-          speedArray.add(doc.get("speed"));
+          speedArray.add((doc.get("speed")).toInt());
         });
         Position pos = Position(
             longitude: doc.get("position")["geopoint"].longitude,
@@ -248,7 +276,7 @@ class _ViewMapState extends State<ViewMap> {
   }
 
   void findMaxSpeed() {
-    speedMax = 0.0;
+    speedMax = 0;
     for (var i = 0; i < speedArray.length; i++) {
       if (speedArray[i] > speedMax) {
         speedMax = speedArray[i];
@@ -258,7 +286,7 @@ class _ViewMapState extends State<ViewMap> {
   }
 
   void findMinSpeed() {
-    speedMin = 100000.0;
+    speedMin = 100000;
     print("j'affiche la taille du tableau");
     print(speedArray.length);
     for (var i = 0; i < speedArray.length; i++) {
@@ -275,28 +303,37 @@ class _ViewMapState extends State<ViewMap> {
     int change = -1;
     int indexDrawPolyline = -1;
 
-    positionList = [];
-    gradientColorsList!.clear();
+    //on flush les deux tableau pour reconstruire le tracer depuis la bdd
+    setState(() {
+      positionList.clear();
+      gradientColorsList!.clear();
+    });
 
-    for (var i = 0; i < positionArray.length; i++) {
+    for (var i = positionArray.length - 1; i >= 0; i--) {
       if (speedArray[i] < (speedMin + epsilon)) {
         //fill the polyline with the color blue
-        positionList
-            .add(LatLng(positionArray[i].latitude, positionArray[i].longitude));
-        gradientColorsList!.add(Colors.blue);
+        setState(() {
+          positionList.add(
+              LatLng(positionArray[i].latitude, positionArray[i].longitude));
+          gradientColorsList!.add(Colors.blue);
+        });
         continue;
       }
       if (speedArray[i] >= (speedMin + epsilon) &&
           speedArray[i] <= (speedMin + (2 * epsilon))) {
-        positionList
-            .add(LatLng(positionArray[i].latitude, positionArray[i].longitude));
-        gradientColorsList!.add(Colors.orange);
+        setState(() {
+          positionList.add(
+              LatLng(positionArray[i].latitude, positionArray[i].longitude));
+          gradientColorsList!.add(Colors.orange);
+        });
         continue;
       }
       if (speedArray[i] > (speedMin + (2 * epsilon))) {
-        positionList
-            .add(LatLng(positionArray[i].latitude, positionArray[i].longitude));
-        gradientColorsList!.add(Colors.red);
+        setState(() {
+          positionList.add(
+              LatLng(positionArray[i].latitude, positionArray[i].longitude));
+          gradientColorsList!.add(Colors.red);
+        });
         continue;
       }
     }
@@ -417,7 +454,7 @@ class _ViewMapState extends State<ViewMap> {
                   ],
                   center: LatLng(
                       currentLocation!.latitude, currentLocation!.longitude),
-                  zoom: 16.0,
+                  zoom: 17.0,
                 ),
                 layers: [
                   TileLayerOptions(
