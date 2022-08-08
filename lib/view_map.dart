@@ -36,19 +36,9 @@ class ViewMap extends StatefulWidget {
   State<ViewMap> createState() => _ViewMapState();
 }
 
-class ArrayInfo {
-  late List<Position> positionArray;
-  late List<double> speedArray;
-}
-
 class _ViewMapState extends State<ViewMap> {
-  int _counter = 0;
   String nameButton = 'START';
-  String _end = "Start";
-  late Timer timer;
   late MapController _mapController;
-  final List<Polyline> _poly = [];
-  List<Polyline> polylines_test = [];
   List<LatLng> positionList = [];
   List<Color>? gradientColorsList = [];
   List<Position> positionArray = [];
@@ -56,120 +46,49 @@ class _ViewMapState extends State<ViewMap> {
   final _firestore = FirebaseFirestore.instance;
   late String _trackName;
   late StreamSubscription<Position> _positionStreamSubscription;
-  late StreamSubscription<Position> _positionStreamSubscription_pin;
   int positionstreambegin = 0;
-  List<Marker> _markers = <Marker>[];
+  Position? currentLocation;
   int speedMin = 0;
   int speedMax = 0;
 
   @override
   void initState() {
-    active_geoloc();
+    Check_geoloc();
     getCurrentLocation();
     setState(() {
       gradientColorsList!.add(Colors.orange);
     });
 
-    ///call function for routes and pin to put on a map
-    //tracePin();
-    //tracePolyline();
     retraceRace(); //
     super.initState();
     print("je rentre dans le init() ");
 
     //timer = Timer.periodic(const Duration(seconds: 2), (Timer t) => _measure());
-
-////////////////////////////////////////////////////////////////////////////////////////
-////////////////// pour rafficher le tracer apres avoir quitter la page//////////////////
-////////////////////////////////////////////////////////////////////////////////////////
-
-    // _firestore.collection(widget.track).get().then((snapshot) {
-    //   for (DocumentSnapshot doc in snapshot.docs) {
-    //     //     //doc.reference.delete();
-    //     final mylocation = doc.get("position")["geopoint"];
-    //     setState(() {
-    //       _polyline.add(LatLng(mylocation.latitude, mylocation.longitude));
-    //       // _polybis.add(
-    //       //     LatLng(mylocation.latitude + 5.0, mylocation.longitude + 5.0));
-    //     });
-    //     //print(_polyline);
-    //   }
-    // });
-
-    /////////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////
-
-    //je recupere tout ce qu'il  y a sur la base de donée et je l'affiche sur la map
-    // setState(() {
-    //   _polyline.clear(); //flush all point
-    //   //free all the data in the firebase
-    //   _firestore.collection(_trackName).get().then((snapshot) {
-    //     for (DocumentSnapshot doc in snapshot.docs) {
-    //       //doc.reference.delete();
-    //       final mylocation = doc.get("position")["geopoint"];
-    //       //print(mylocation.latitude);
-    //       //print(mylocation.longitude);
-    //       _polyline.add(mylocation);
-    //     }
-    //   });
-
-    //   //.add({'geohash': 'track', 'position': myLocation.data}).then((_) {
-    //   //print('added ${myLocation.hash} successfully');
-    // });
   }
 
   void retraceRace() async {
+    /*
+
+    Fonction qui est appelé lorsque l'on veut recuperer ces tracé precedent sur ce circuit 
+    La fonction va dans un premier temps recuperer les information dans la BDD puis faire le tarcer du circuit
+
+    */
     print("avant appelle de la fonction");
     final forecast = await getAllDataFromDB();
     print("apres appelle de la fonction");
     retraceRoute();
   }
 
-  void tracePin() {
-    final positionStream = Geolocator.getPositionStream();
-    _positionStreamSubscription_pin = positionStream.handleError((error) {
-      //_positionStreamSubscription?.cancel();
-      print("il y a une erreur dans le stream ");
-      //_positionStreamSubscription = null;
-    }).listen((position) {
-      setState(() {
-        //useless but Markerlayer option m'oblige a prendre list<Marker>
-        _markers.clear();
-        _markers.add(
-          Marker(
-              point: LatLng(position.latitude, position.longitude),
-              builder: (ctx) => const Icon(Icons.location_on_outlined)),
-        );
-      });
-    });
-    //_positionStreamSubscription_pin.pause();
-    //_positionStreamSubscription_pin.cancel();
-  }
-
-  Position? currentLocation;
-
-  void changePinMarker() {
-    //_positionStreamSubscription_pin.resume();
-  }
-
-  // void getCurrentLocation() async {
-  //   loc.Location location = loc.Location();
-  //   location.getLocation().then((location) {
-  //     currentLocation = location;
-  //   });
-
-  //   location.onLocationChanged.listen((newLoc) {
-  //     currentLocation = newLoc;
-  //     print("je rentre dans le getCurrentLocation");
-  //     setState(() {});
-  //   });
-  // }
-
   void getCurrentLocation() async {
+    /*
+
+    Fonction qui active le stream sur la position de l'utilisateur : 
+      - Afin de le reperer sur la map 
+      - de pourvoir faire le tracer de sa course
+
+     */
     loc.Location location = loc.Location();
     double latitude;
-    print("je veux ma localisation");
     await location.getLocation().then((location) => {
           setState(() {
             currentLocation = Position(
@@ -183,9 +102,7 @@ class _ViewMapState extends State<ViewMap> {
                 speedAccuracy: 0);
           })
         });
-    print("j'obtient ma localisation");
     _mapController = await MapController();
-    print("object");
     final positionStream = Geolocator.getPositionStream();
     _positionStreamSubscription = positionStream.handleError((error) {
       //_positionStreamSubscription?.cancel();
@@ -196,7 +113,6 @@ class _ViewMapState extends State<ViewMap> {
       setState(() {
         currentLocation = position;
         _mapController.move(LatLng(position.latitude, position.longitude), 17);
-        //map.move ne fonctionne pas ici
       });
 
       var speedInMps = position.speed;
@@ -228,7 +144,12 @@ class _ViewMapState extends State<ViewMap> {
     //_positionStreamSubscription.cancel();
   }
 
-  Future<void> active_geoloc() async {
+  Future<void> Check_geoloc() async {
+    /* 
+
+    Fonction qui permet de verifier les permission de geolocalisation 
+
+    */
     LocationPermission checkPermi = await Geolocator.checkPermission();
     LocationPermission askPermi = await Geolocator.requestPermission();
     // Position position = await Geolocator.getCurrentPosition(
@@ -242,10 +163,10 @@ class _ViewMapState extends State<ViewMap> {
   }
 
   Future<void> getAllDataFromDB() async {
-    //position and speed
-    ///Creation 2 array speed and position
-    //get all data from the BDD speed and the position
-
+    /*
+      fill 2 array speed and position
+      get all data from the BDD speed and the position
+    */
     return _firestore
         .collection(widget.track)
         .orderBy('time')
@@ -276,16 +197,23 @@ class _ViewMapState extends State<ViewMap> {
   }
 
   void findMaxSpeed() {
+    /*
+      Fonction qui va trouver la vitesse max recuperer au preavant dans BDD
+    
+     */
     speedMax = 0;
     for (var i = 0; i < speedArray.length; i++) {
       if (speedArray[i] > speedMax) {
         speedMax = speedArray[i];
       }
     }
-    //return speedMax;
   }
 
   void findMinSpeed() {
+    /*
+      Fonction qui va trouver la vitesse min recuperer au preavant dans BDD
+    
+     */
     speedMin = 100000;
     print("j'affiche la taille du tableau");
     print(speedArray.length);
@@ -298,7 +226,10 @@ class _ViewMapState extends State<ViewMap> {
   }
 
   void retraceRoute() {
-    //give in argument 2 array with the same size
+    /*
+      Fonction qui va remplire le tableau...  A finir
+    
+     */
     double epsilon = (speedMax - speedMin) / 3;
     int change = -1;
     int indexDrawPolyline = -1;
@@ -341,55 +272,31 @@ class _ViewMapState extends State<ViewMap> {
     return;
   }
 
-  int cpt = 0;
-  late StreamSubscription<loc.LocationData> locationSubscription;
-  int _insideListen = 1;
-  //TO-DO change the name of the function
-  Future<void> _startRace() async {
-    if (_end == "Start") {
+  Future<void> startRace() async {
+    /*
+      Fonction qui va mettre a jour la variable globale qui correspond au nom  du bouton. 
+      pour le esle nous allons rappeller chaque position ecris au paravant dans la BDD et puis nous allons
+      affecter a chaque points une couleurs selon la vitesse enregistrer
+    
+     */
+    if (nameButton == "START") {
       //_positionStreamSubscription.resume();
       setState(() {
         nameButton = "END !";
-        _end = "Done";
       });
-      //Zomm in
-      // Position position = await Geolocator.getCurrentPosition(
-      //     desiredAccuracy: LocationAccuracy.high);
-      // setState(() {
-      //   _mapController.move(LatLng(position.latitude, position.longitude), 16);
-      // });
 
-      /// reactive the polyline
-      //_positionStreamSubscription.resume();
       positionstreambegin = 1;
       print(
-          "je suis dans le _startRace au moment de l'init du stream de la localisation");
-    } else if (_end == "Done") {
-      _insideListen = 1;
-
-      //var tab = ArrayInfo();
-      ///getting all the information from the database speed and position
-      ///passer par une class
-      ///malgres l'utilisation de la class je n'arrive pas a enregistrer les informations reçue par la bdd
+          "je suis dans le startRace au moment de l'init du stream de la localisation");
+    } else if (nameButton == "END !") {
       speedArray = [];
       positionArray = [];
       final forecast = await getAllDataFromDB();
-
-      //print(tab.speedArray);
-
-      ///
-
-      ///
-      //positionArray = tab[0];
-      //speedArray = tab[1];
-
-      ///function that return the maxspeed and the minspeed
 
       ///retrace the route
       retraceRoute();
       setState(() {
         nameButton = "START";
-        _end = "Start";
       });
     }
     // This call to setState tells the Flutter framework that something has
@@ -401,16 +308,19 @@ class _ViewMapState extends State<ViewMap> {
     //});
   }
 
-  _localisation() {
-    changePinMarker();
-  }
-
   void _onPositionChanged(MapPosition pos, bool hasGesture) {
+    /*
+      Lorsque je bouge la map je rentrer dans cette fonction
+    
+     */
     print("je rentre la a chaque que je bouge la map ");
   }
 
   void refresh() {
-    //fonction qui pose probleme, censer marcher de façon theorique.
+    /*
+      Fonction qui va supprimer que ce soit sur la map ou les positions enregistrer dans la BDD
+
+     */
     setState(() {
       positionList.clear();
       gradientColorsList!.clear();
@@ -421,9 +331,6 @@ class _ViewMapState extends State<ViewMap> {
           doc.reference.delete();
         }
       });
-
-      //.add({'geohash': 'track', 'position': myLocation.data}).then((_) {
-      //print('added ${myLocation.hash} successfully');
     });
   }
 
@@ -498,7 +405,7 @@ class _ViewMapState extends State<ViewMap> {
                       style: TextStyle(color: Colors.black),
                     ),
                     onPressed: () {
-                      _startRace();
+                      startRace();
                     }),
               ),
             ),
@@ -518,30 +425,12 @@ class _ViewMapState extends State<ViewMap> {
                 },
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 70),
-              child: Align(
-                alignment: Alignment.bottomRight,
-                child: FloatingActionButton(
-                    heroTag: "btn3",
-                    // backgroundColor: Color(0XFF0D325E),
-                    backgroundColor: Colors.orange,
-                    // child: Icon(Icons.refresh),
-                    child: const Icon(Icons.location_on),
-                    onPressed: () {
-                      print("je m'auto localise");
-                      _localisation();
-                    }),
-              ),
-            ),
           ],
         ),
       ),
       onWillPop: () async {
-        print("je suis la dans le willpop");
         _positionStreamSubscription.pause();
         _positionStreamSubscription.cancel();
-        print("je suis a la fin de willpop");
         return true;
       },
     ); //);

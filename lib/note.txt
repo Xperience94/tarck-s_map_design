@@ -1,16 +1,5 @@
-Changement effectuer 
- - fonction changePinMarker
-
- - j'ai rajouter l'appelle  retraceRoute() (j'ai rajouter des continue)
-
-
-
-changement a effectuer 
-
-- voir pour le mettre le pin avec le poisitionstream et ne pas en avoir deux qui pourrais ce gener et ralentir la tache (c'est quasi sur).
-
-- vraiment un probleme d'avoir deux positionstream ? 
-
--jouer avec les courleur entre les points pour qu'il ce rejoingnent !
--Essayer de voir avec polygon pour tracer une route semble plus simple pour gerer les gradient
-
+1) Reprendre un projet avec google map 
+2) Rajouter un mode utilisateur
+3) Moduler le code rajouter des comentaire
+4) faire qu'un appelle a la base a la fond a la fin du tracer (eviter trop d'appelle car trop couteux)
+5) Modifier les flatBut†on par ce u'il fait aujourd'hui 

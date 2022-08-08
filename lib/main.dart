@@ -8,25 +8,11 @@ import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-List<String> myProducts = [];
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  await FirebaseFirestore.instance
-      .collection('alltracks')
-      .get()
-      .then((snapshot) {
-    myProducts.clear();
-    for (DocumentSnapshot doc in snapshot.docs) {
-      //doc.reference.delete();
-      myProducts.add(doc.get("String"));
-      //print(mylocation.latitude);
-      //print(mylocation.longitude);
-    }
-  });
   runApp(MyApp());
 }
 
@@ -59,24 +45,60 @@ final _firestore = FirebaseFirestore.instance;
 
 class _MyHomePageState extends State<MyHomePage> {
   int value = 0;
-  //List<String> myProducts = [];
-  List<String> test_array = [];
+  List<String> myProducts = [];
+  final myController = TextEditingController();
+  String namecircuit = "";
+  double oppa = 0.1;
+  double oppa_array = 1;
+  double oppa_button = 1;
+  bool Show_array = false, Show_button = false;
+  String explication = "Vous pouvez enregistrer le tracer de vos circuits";
+  final keyIsFirstLoaded = 'is_first_loaded';
+
   @override
   void initState() {
+    getAllTracksName();
     super.initState();
   }
 
+  void getAllTracksName() async {
+    /*
+    
+    Fonction qui va recuperer dans la bdd tout les nom des circuits creer 
+    
+     */
+    await FirebaseFirestore.instance
+        .collection('alltracks')
+        .get()
+        .then((snapshot) {
+      setState(() {
+        myProducts.clear();
+      });
+      for (DocumentSnapshot doc in snapshot.docs) {
+        //doc.reference.delete();
+        setState(() {
+          myProducts.add(doc.get("String"));
+        });
+        //print(mylocation.latitude);
+        //print(mylocation.longitude);
+      }
+    });
+  }
+
   // ignore: non_constant_identifier_names
-  void delete_tarck_pist(int index) {
+  void delete_track_pist(int index) {
+    /*
+    
+    Fonction qui va suppr  le circuit de la bdd 
+    
+     */
     _firestore.collection(myProducts[index]).get().then((snapshot) {
       for (DocumentSnapshot doc in snapshot.docs) {
         doc.reference.delete();
       }
     });
-    //le supprimer de la liste de alltracks
     _firestore.collection('alltracks').get().then((snapshot) {
       for (DocumentSnapshot doc in snapshot.docs) {
-        int taille = myProducts.length;
         if (doc.get("String") == myProducts[index]) {
           doc.reference.delete();
         }
@@ -87,22 +109,17 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  final myController = TextEditingController();
-  String namecircuit = "";
-  double oppa = 0.1;
-  double oppa_array = 1;
-  double oppa_button = 1;
   Widget _buildPopupDialog(BuildContext context) {
-    return new AlertDialog(
+    return AlertDialog(
       //backgroundColor: Colors.white.withOpacity(0.1),
       title: const Text('Select a name'),
-      content: new Column(
+      content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         // ignore: prefer_const_literals_to_create_immutables
         children: <Widget>[
           Padding(
-            padding: EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(8.0),
             child: TextField(
               controller: myController,
             ),
@@ -110,7 +127,7 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
       actions: <Widget>[
-        new FlatButton(
+        FlatButton(
           onPressed: () {
             setState(() {
               value++;
@@ -137,10 +154,6 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  bool Show_array = false, Show_button = false;
-  String explication = "Vous pouvez enregistrer le tracer de vos circuits";
-
-  final keyIsFirstLoaded = 'is_first_loaded';
   showDialogIfFirstLoaded(BuildContext context) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool? isFirstLoaded = prefs.getBool(keyIsFirstLoaded);
@@ -219,75 +232,57 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     //recuperer les infos dans la base de donnée et remplire la liste
-    final test = _firestore.toString();
-    // setState(() {
-    //   getData();
-    // });
     Future.delayed(Duration.zero, () => showDialogIfFirstLoaded(context));
-    // setState(() {
-    //   myProducts = List.from(test_array);
-    // });
-    //Future.delayed(Duration.zero, () => _buildPopupExplication(context));
-    //myProducts.add("test");
-
-    // QuerySnapshot querySnapshot = await _firestore.collection("collection").get();
-    // for (int i = 0; i < querySnapshot.docs.length; i++) {
-    //   var a = querySnapshot.docs[i];
-    // }
 
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: Container(
-        // Use ListView.builder
-        child: ListView.builder(
-            // the number of items in the list
-            itemCount: myProducts.length,
-            // display each item of the product list
-            itemBuilder: (context, index) {
-              return Card(
-                //color: Colors.transparent,
-                child: ListTile(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => ViewMap(
-                                title: myProducts[index],
-                                //je lui donne le nom de la piste
-                                track: myProducts[index],
-                                //track: index,
-                              )),
-                    );
-                  },
-                  // In many cases, the key isn't mandatory
+      body: ListView.builder(
+          // the number of items in the list
+          itemCount: myProducts.length,
+          // display each item of the product list
+          itemBuilder: (context, index) {
+            return Card(
+              //color: Colors.transparent,
+              child: ListTile(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => ViewMap(
+                              title: myProducts[index],
+                              //je lui donne le nom de la piste
+                              track: myProducts[index],
+                              //track: index,
+                            )),
+                  );
+                },
+                // In many cases, the key isn't mandatory
 
-                  title: Text(
-                    myProducts[index],
-                    style:
-                        TextStyle(color: Colors.black.withOpacity(oppa_array)),
-                  ),
-                  leading: const Icon(
-                    Icons.car_repair_outlined,
-                    color: Colors.black,
-                  ),
-                  trailing: IconButton(
-                    color: Colors.black,
-                    icon: const Icon(Icons.delete),
-                    onPressed: () {
-                      //appeller la fonction qui va supprimer les tarce sur firebase
-                      delete_tarck_pist(index);
-                    },
-                  ),
-                  key: UniqueKey(),
+                title: Text(
+                  myProducts[index],
+                  style: TextStyle(color: Colors.black.withOpacity(oppa_array)),
                 ),
-                // child: Padding(
-                //     padding: const EdgeInsets.all(10),
-                //     child: Text(myProducts[index])),
-              );
-            }),
-      ),
+                leading: const Icon(
+                  Icons.car_repair_outlined,
+                  color: Colors.black,
+                ),
+                trailing: IconButton(
+                  color: Colors.black,
+                  icon: const Icon(Icons.delete),
+                  onPressed: () {
+                    //appeller la fonction qui va supprimer les tarce sur firebase
+                    delete_track_pist(index);
+                  },
+                ),
+                key: UniqueKey(),
+              ),
+              // child: Padding(
+              //     padding: const EdgeInsets.all(10),
+              //     child: Text(myProducts[index])),
+            );
+          }),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           showDialog(
